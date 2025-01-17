@@ -17,8 +17,10 @@ public class ClientGUI {
     private JButton disconnectButton;   // Button zum Trennen
     private JList<String> userList;     // Liste der Benutzer
     private DefaultListModel<String> userListModel; // Modell für die Benutzerliste
-    private Client client;              // Referenz zur Client-Logik
+    private Client client;
+    private boolean connected = false;
 
+    // Referenz zur Client-Logik
     public ClientGUI() {
         // Initialisiere das Fenster
         frame = new JFrame("Client GUI");
@@ -109,6 +111,10 @@ public class ClientGUI {
     }
 
     private void connectToServer() {
+        if (connected) {
+            appendMessage("Sie sind mit Server verbunden");
+            return;
+        }
         String host = serverField.getText().trim();
         int port;
 
@@ -127,7 +133,7 @@ public class ClientGUI {
                 client = new Client(this); // Client erstellen und mit der GUI verknüpfen
                 client.connect(host, port); // Verbindung herstellen
                 SwingUtilities.invokeLater(() -> {
-                    appendMessage("Erfolgreich mit dem Server verbunden.");
+                    connected = true;
                     connectButton.setEnabled(false);
                     disconnectButton.setEnabled(true);
                 });
@@ -140,12 +146,22 @@ public class ClientGUI {
 
     // Verbindung zum Server trennen
     private void disconnectFromServer() {
-        if (client != null) {
-            client.disconnect();
-            connectButton.setEnabled(true);
-            disconnectButton.setEnabled(false);
+        if (!connected) {
+            appendMessage("Sie sind nicht mit dem Server verbunden.");
+            return; // Verhindert unnötiges Trennen
         }
+        new Thread(() ->{
+            if (client != null) {
+                client.disconnect();
+                SwingUtilities.invokeLater(() -> {
+                    connected = false;
+                    connectButton.setEnabled(true); // Verbinden-Button aktivieren
+                    disconnectButton.setEnabled(false); // Trennen-Button deaktivieren
+                });
+            }
+        }).start();
     }
+
 
     // Nachricht zur Nachrichtenanzeige hinzufügen
     public void appendMessage(String message) {
@@ -158,10 +174,12 @@ public class ClientGUI {
 
     // Benutzerliste aktualisieren
     public void updateUserList(String[] users) {
-        userListModel.clear();
-        for (String user : users) {
-            userListModel.addElement(user);
-        }
+        SwingUtilities.invokeLater(() -> {
+            userListModel.clear();
+            for (String user : users) {
+                userListModel.addElement(user);
+            }
+        });
     }
     public void setClient(Client client) {
         this.client = client; // Verknüpft die GUI mit der Client-Instanz

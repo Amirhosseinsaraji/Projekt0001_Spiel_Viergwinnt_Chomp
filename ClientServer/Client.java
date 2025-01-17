@@ -3,6 +3,9 @@ package ClientServer;
 import javax.swing.*;
 import java.io.*;
 import java.net.*;
+import java.util.List;
+import java.util.ArrayList;
+
 
 
 
@@ -34,12 +37,11 @@ import java.net.*;
 
                 // Startet einen Thread, um Nachrichten vom Server zu empfangen
                 new Thread(this::listenForServerMessages).start();
-
-                // Bearbeitet die Benutzereingabe
-                handleUserInput();
-            } catch (IOException e) {
-                System.out.println("Fehler beim Verbinden mit dem Server: " + e.getMessage());
+            }catch (IOException e){
+                System.out.println("Fehler beim Verbindung des Servers");
+                throw e;
             }
+
         }
 
         // Trennt die Verbindung zum Server
@@ -49,7 +51,7 @@ import java.net.*;
                 if (dataInputStream != null) dataInputStream.close();
                 if (dataOutputStream != null) dataOutputStream.close();
                 if (clientSocket != null) clientSocket.close();
-                gui.appendMessage("Verbindung zum Server beendet.");
+                gui.appendMessage("Verbindung zum Server getrennt");
             } catch (IOException e) {
                 gui.appendMessage("Fehler beim Trennen der Verbindung: " + e.getMessage());
             }
@@ -80,17 +82,19 @@ import java.net.*;
             }
         }
 
+        // Eingehende Nachrichten verarbeiten
         private void listenForServerMessages() {
             try {
                 while (running) {
                     String message = dataInputStream.readUTF();
-                    SwingUtilities.invokeLater(() -> gui.appendMessage("Nachricht vom Server: " + message));
+                    SwingUtilities.invokeLater(() -> gui.appendMessage("Nachricht vom Server: " + message ));
                 }
             } catch (IOException e) {
                 SwingUtilities.invokeLater(() -> gui.appendMessage("Verbindung zum Server verloren: " + e.getMessage()));
                 disconnect();
             }
         }
+
 
 
         // Sendet eine Nachricht an den Server
@@ -103,19 +107,30 @@ import java.net.*;
         public boolean isRunning() {
             return running;
         }
+        // Benutzerliste empfangen und GUI aktualisieren
+        private void receiveUserList() {
+            try {
+                int userCount = dataInputStream.readInt();
+                List<String> users = new ArrayList<>();
+                for (int i = 0; i < userCount; i++) {
+                    users.add(dataInputStream.readUTF());
+                }
+                SwingUtilities.invokeLater(() -> gui.updateUserList(users.toArray(new String[0])));
+            } catch (IOException e) {
+                System.err.println("Fehler beim Empfangen der Benutzerliste: " + e.getMessage());
+            }
+        }
+
 
 
         // Einstiegspunkt des Clients
         public static void main(String[] args) {
-            new Thread(() -> { // Neuer Thread für den Client
-                Client client = new Client(new ClientGUI());
-                try {
-                    client.connect("localhost", 8080); // Verbindet sich mit dem Server
-                }catch (IOException e) {
-                    System.out.println("Fehler beim Verbinden mit dem Server: " + e.getMessage());
-                }
-            }).start();
+            SwingUtilities.invokeLater(() -> {
+                ClientGUI gui = new ClientGUI(); // Erstellt GUI
+                gui.appendMessage("Willkommen , Bitte verbinden Sie sich mit einem Server.");
+            });
+        }
 
         }
-    }
+
 

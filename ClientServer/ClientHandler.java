@@ -8,6 +8,8 @@ class ClientHandler extends Thread {
     private final Server server;
     public DataInputStream in;
     public DataOutputStream out;
+    private String username;
+
 
     public ClientHandler(Socket clientSocket, Server server, DataInputStream in, DataOutputStream out) {
         this.clientSocket = clientSocket;
@@ -16,6 +18,8 @@ class ClientHandler extends Thread {
         this.out = out;
     }
 
+
+
     @Override
     public void run() {
         try {
@@ -23,15 +27,17 @@ class ClientHandler extends Thread {
             in = new DataInputStream(clientSocket.getInputStream());
             out = new DataOutputStream(clientSocket.getOutputStream());
 
+
             // Anmeldung oder Registrierung
             server.sendMessage(out, "Willkommen! Möchten Sie sich registrieren (1) oder anmelden (2)?");
+
             String option = server.readMessage(in);
+
 
             if ("1".equals(option)) {
                 server.handleRegistration(clientSocket, in, out);
             } else if ("2".equals(option)) {
                 if (!server.handleLogin(clientSocket, in, out)) {
-                    server.sendMessage(out, "Verbindung wird beendet.");
                     clientSocket.close();
                     return;
                 }
@@ -51,12 +57,48 @@ class ClientHandler extends Thread {
                     server.disconnectClient(clientSocket);
                     break;
                 }
-                server.broadcast(clientName + ": " + message);
+                server.broadcast(clientName + ": " + message,"MESSAGE");
             }
         } catch (IOException e) {
             System.out.println("Verbindung zu einem Client verloren: " + e.getMessage());
         } finally {
+            try {
+                if (!clientSocket.isClosed()) {
+                    clientSocket.close();
+                }
+            } catch (IOException e) {
+                System.err.println("Fehler beim Schließen des Sockets: " + e.getMessage());
+            }
             server.disconnectClient(clientSocket);
         }
     }
-}
+    public String getUsername() {
+        return this.username; // oder wie der Benutzername gespeichert ist
+    }
+
+
+    // Nachricht an den Client senden
+        public void sendMessage(String message) {
+            try {
+                out.writeUTF("MESSAGE");
+                out.writeUTF(message);
+            } catch (IOException e) {
+                System.err.println("Fehler beim Senden der Nachricht: " + e.getMessage());
+            }
+        }
+
+        // Methode zum Senden der Benutzerliste an einen Client
+        public void sendUserList(String[] users) {
+            try {
+                out.writeUTF("USER_LIST_UPDATE");
+                out.writeInt(users.length);
+                for (String user : users) {
+                    out.writeUTF(user);
+                }
+            } catch (IOException e) {
+                System.err.println("Fehler beim Senden der Benutzerliste: " + e.getMessage());
+            }
+        }
+
+    }
+

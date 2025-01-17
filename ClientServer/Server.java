@@ -3,8 +3,6 @@ package ClientServer;
 import java.io.*;
 import java.net.*;
 import java.util.*;
-import javax.mail.*;
-import javax.mail.internet.*;
 import javax.swing.SwingUtilities;
 
 
@@ -18,7 +16,9 @@ public class Server {
     private ServerSocket listener; // ServerSocket für eingehende Verbindungen
     private final Map<String, String> userCredentials = new HashMap<>(); // Email-Passwort-Liste
     private final Map<String, Socket> connectedClients = Collections.synchronizedMap(new HashMap<>());
+    private List<ClientHandler> activeClients = new ArrayList<>();
     private ServerGUI gui;  // GUI wird über den Konstruktor übergeben
+
 
 
     public Server(ServerGUI gui) {
@@ -39,6 +39,8 @@ public class Server {
                         continue;
                     }
                     Socket client = listener.accept(); // Client wird hier akzeptiert
+                    System.out.println("Neue Verbindung akzeptiert: " + client.getInetAddress()); // Debugging hinzufügen
+
                     DataInputStream in = new DataInputStream(client.getInputStream());
                     DataOutputStream out = new DataOutputStream(client.getOutputStream());
 
@@ -126,33 +128,26 @@ public class Server {
             }
 
 
-            // Schritt 2: Passwort generieren und per E-Mail senden
-            String generatedPassword = generatePassword();
-            try {
-                String username = email.split("@")[0]; // Benutzername aus der E-Mail extrahieren
-                JavaMail emailService = new JavaMail(email, generatedPassword, username);
-                sendMessage(out, "Ein Passwort wurde an Ihre E-Mail gesendet. Bitte geben Sie es ein, um fortzufahren:");
-            } catch (Exception e) {
-                gui.logMessage("Fehler beim Senden der E-Mail: " + e.getMessage());
-                sendMessage(out, "Fehler beim Senden der E-Mail. Bitte versuchen Sie es später erneut.");
-                return; // Beende die Registrierung, wenn das Senden fehlschlägt
-            }
 
-            // Schritt 3: Passwort eingeben und überprüfen
-            String enteredPassword;
-            try {
-                sendMessage(out, "Geben Sie das Passwort ein, das Sie per E-Mail erhalten haben:");
-                enteredPassword = readMessage(in);
+            // Schritt 2: Passwort-Option anbieten
+            sendMessage(out, "Möchten Sie ein eigenes Passwort festlegen? (Ja/Nein)");
+            String userChoice = readMessage(in);
 
-                if (!generatedPassword.equals(enteredPassword)) {
-                    sendMessage(out, "Das eingegebene Passwort ist falsch. Registrierung abgebrochen.");
-                    return;
+            String chosenPassword;
+
+            if ("Ja".equalsIgnoreCase(userChoice)) {
+                sendMessage(out, "Bitte geben Sie Ihr gewünschtes Passwort ein:");
+                chosenPassword = readMessage(in);
+                while (!isValidPassword(chosenPassword)) {
+                    sendMessage(out, "Ungültiges Passwort. Es muss mindestens 6 Zeichen lang sein und darf keine Leerzeichen enthalten. Bitte erneut eingeben:");
+                    chosenPassword = readMessage(in);
                 }
-            } catch (IOException e) {
-                gui.logMessage("Fehler beim Lesen des Passworts: " + e.getMessage());
-                sendMessage(out, "Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.");
-                return;
+            } else {
+                // Schritt 3: Generiertes Passwort verwenden
+                chosenPassword = generatePassword();
+                sendMessage(out, "Ihr zufälliges Passwort lautet: " + chosenPassword);
             }
+
 
             // Schritt 4: Anzeigenamen auswählen
             try {
@@ -164,8 +159,11 @@ public class Server {
                 }
 
                 // Speichern der Benutzerdaten
-                userCredentials.put(email, generatedPassword);
+                userCredentials.put(email, chosenPassword);
                 sendMessage(out, "Registrierung erfolgreich! Sie können sich jetzt einloggen.");
+                // Den Benutzer informieren, dass der Anmeldevorgang folgt
+                sendMessage(out, "Bitte melden Sie sich jetzt an.");
+                handleLogin(client, in, out); // Startet den Anmeldeprozess
             } catch (IOException e) {
                 gui.logMessage("Fehler beim Eingeben des Anzeigenamens: " + e.getMessage());
                 sendMessage(out, "Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.");
@@ -180,6 +178,12 @@ public class Server {
             }
         }
     }
+
+
+    private boolean isValidPassword(String password) {
+        return password.length() >= 6 && !password.contains(" ");
+    }
+
 
     // Führt die Anmeldung durch
     public boolean handleLogin(Socket client, DataInputStream in, DataOutputStream out) throws IOException {
@@ -212,6 +216,7 @@ public class Server {
             if (authenticateUser(email, password)) {
                 sendMessage(out, "Anmeldung erfolgreich!");
                 connectedClients.put(email, client); // Client zur Liste der verbundenen Clients hinzufügen
+                gui.addUser(email);
                 sendClientList(out); // Liste der aktiven Clients an den Benutzer senden
                 return true; // Anmeldung erfolgreich
             } else {
@@ -238,23 +243,26 @@ public class Server {
             if (client != null && !client.isClosed()) {
                 client.close();
             }
-            gui.logMessage("Client wurde getrennt.");
+            gui.logMessage("Client: wurde getrennt.");
         } catch (IOException e) {
             gui.logMessage("Fehler beim Trennen des Clients: " + e.getMessage());
         }
     }
 
-    // Sendet eine Nachricht an alle Clients
-    public void broadcast(String message) {
+
+    // Nachricht an alle Clients senden
+    public void broadcast(String message, String type) {
         for (Socket client : connectedClients.values()) {
             try {
                 DataOutputStream out = new DataOutputStream(client.getOutputStream());
-                out.writeUTF(message);
+                out.writeUTF(type); // Nachrichtentyp (z. B. "MESSAGE" oder "USER_LIST")
+                out.writeUTF(message); // Die Nachricht selbst
             } catch (IOException e) {
                 gui.logMessage("Fehler beim Senden der Nachricht: " + e.getMessage());
             }
         }
     }
+
 
 
 
@@ -283,47 +291,16 @@ public class Server {
 
     // Generiert ein zufälliges Passwort
     private String generatePassword() {
-        return UUID.randomUUID().toString().substring(0, 8);
-    }
-
-    // Simuliert den E-Mail-Versand
-    private void sendPasswordByEmail(String email, String password) {
-        // SMTP-Server-Einstellungen
-        Properties properties = new Properties();
-        properties.put("mail.smtp.auth", "true");
-        properties.put("mail.smtp.starttls.enable", "true");
-        properties.put("mail.smtp.host", "smtp.gmail.com");
-        properties.put("mail.smtp.port", "587");
-
-        // Authentifizierung mit der Absender-E-Mail und dem Passwort
-        final String senderEmail = "your-email@gmail.com"; // Deine E-Mail-Adresse
-        final String senderPassword = "your-email-password"; // Dein Passwort
-
-        Session session = Session.getInstance(properties, new javax.mail.Authenticator() {
-            @Override
-            protected javax.mail.PasswordAuthentication getPasswordAuthentication() {
-                return new javax.mail.PasswordAuthentication(senderEmail, senderPassword);
-            }
-        });
-
-        try {
-            // E-Mail erstellen
-            Message message = new MimeMessage(session);
-            message.setFrom(new InternetAddress(senderEmail));
-            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(email));
-            message.setSubject("Ihr Passwort für VierGewinnt");
-            message.setText("Hallo,\n\nIhr Passwort lautet: " + password + "\n\nViel Spaß beim Spielen!");
-
-
-            // E-Mail senden
-            Transport.send(message);
-            gui.logMessage("E-Mail wurde erfolgreich an " + email + " gesendet.");
-        } catch (MessagingException e) {
-            e.printStackTrace();
-            gui.logMessage("Fehler beim Senden der E-Mail: " + e.getMessage());
+        String pwcharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        StringBuilder password = new StringBuilder();
+        Random random = new Random();
+        for (int i = 0; i < 8; i++) { // Passwortlänge: 8 Zeichen
+            password.append(pwcharacters.charAt(random.nextInt(pwcharacters.length())));
         }
-
+        return password.toString();
     }
+
+
 
     // Gibt den Client-Namen zurück
     public String getClientName(Socket client) {
@@ -346,6 +323,18 @@ public class Server {
     public void setGUI(ServerGUI gui) {
         this.gui = gui;
     }
+
+    // Liste der aktiven Benutzer aktualisieren und an alle Clients senden
+    private void updateUserList() {
+        String[] userList = activeClients.stream()
+                .map(ClientHandler::getUsername) // Benutzernamen abrufen
+                .toArray(String[]::new);
+
+        for (ClientHandler client : activeClients) {
+            client.sendUserList(userList);
+        }
+    }
+
 
 
     public static void main(String[] args) {
