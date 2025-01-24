@@ -58,10 +58,10 @@ public class MeinMenu extends JFrame {
         vierGewinntImageLabel.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
-                VierGewinnt vierGewinnt = new VierGewinnt(null);
+                VierGewinnt vierGewinnt = new VierGewinnt(new ArrayList<>());
                 MeinMenu.this.setVisible(false);
                 MeinMenu.this.dispose();
-                vierGewinnt.start();
+                new VierGewinntGUI(vierGewinnt);
 
             }
         });
