@@ -2,6 +2,8 @@ package game;
 import util.Protokollierbar;
 
 import java.util.*;
+import javax.swing.JOptionPane;
+
 
 
 public class VierGewinnt extends Spiel implements Protokollierbar {
@@ -15,28 +17,34 @@ public class VierGewinnt extends Spiel implements Protokollierbar {
         super(new ArrayList<>(), null);
         this.spielfeld = new String[zeilen][spalten];
         initialiesiereSpielfeld();
-        System.out.println("Spielfeld wurde vorbereitet");
     }
     public void setupSpiel(){
-        //Gegner auswaehlen
-        Scanner scanner = new Scanner(System.in);
-        System.out.println("Waehlen Sie 1 für Gegner als Computer oder 2 für Gegner als Mensch ");
-        int gegnerTyp = scanner.nextInt();
+        // Gegnerauswahl über JOptionPane
+        String[] options = {"1: Computer", "2: Mensch"};
+        String gegnerTyp = (String) JOptionPane.showInputDialog(
+                null,
+                "Wählen Sie Ihren Gegner:",
+                "Gegnerauswahl",
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                options,
+                options[0]
+        );
 
         spieler.add(new Spieler("Mensch", "Mensch")); // Spieler 1 ist der Mensch
 
 
-        if (gegnerTyp == 1) {
+        if (gegnerTyp != null && gegnerTyp.startsWith("1")) {
             spieler.add(new Spieler("Computer", "Computer"));
-        } else if (gegnerTyp == 2) {
+        } else if (gegnerTyp != null && gegnerTyp.startsWith("2")) {
             spieler.add(new Spieler("Mensch 2", "Mensch"));
         } else {
-            System.out.println("Ungueltige Auswahl.Der Gegner wird als Computer gesetzt.");
+            zeigeStatusInGui("Ungueltige Auswahl.Der Gegner wird als Computer gesetzt.");
             spieler.add(new Spieler("Computer", "Computer"));
         }
     }
     public void start() {
-        System.out.println("Spiel startet...");
+        zeigeStatusInGui("Spiel startet...");
         setupSpiel();
         durchgang();
     }
@@ -67,11 +75,14 @@ public class VierGewinnt extends Spiel implements Protokollierbar {
         }
     }
 
+
+
+
+
     @Override
     public void spielzug(Spieler spieler) {
         Scanner scanner = new Scanner(System.in);
-        int spalte;  // Variable zur Speicherung der vom Spieler gewählten Spalte
-
+        int spalte;
         if (spieler.getArtDesSpieler().equals("Computer")) {
             spalte = findeBesteSpalte();
             System.out.println("Computer setzt in Spalte " + spalte);
@@ -134,7 +145,7 @@ public class VierGewinnt extends Spiel implements Protokollierbar {
 
 
 
-    private boolean istSpielfeldvoll() {
+    public boolean istSpielfeldvoll() {
         for(int i = 0 ;i < spalten; i++){
             if (spielfeld[0][i].equals("-")){
                 return false;
@@ -142,6 +153,11 @@ public class VierGewinnt extends Spiel implements Protokollierbar {
         }
         return true;
     }
+
+    public void naechsterSpieler() {
+        aktuellerSpielerIndex = (aktuellerSpielerIndex + 1) % spieler.size();
+    }
+
 
 
     private int findZeileInSpalte(int spalte) {
@@ -216,7 +232,7 @@ public class VierGewinnt extends Spiel implements Protokollierbar {
         return gewinnt;
     }
 
-    private boolean pruefeSieg(Spieler spieler) {
+    public boolean pruefeSieg(Spieler spieler) {
         String symbol = spieler.getName();
 
         //Horizontale Gewinnueberpruefung
@@ -258,8 +274,20 @@ public class VierGewinnt extends Spiel implements Protokollierbar {
         }
         return false; // kein Sieg
     }
+    public String[][] getSpielfeld() {
+        return spielfeld;
+    }
 
-    private void zeigeSpielfeld(){
+    private int aktuellerSpielerIndex = 0; // Beispiel: Index des aktuellen Spielers
+
+    public Spieler getAktuellerSpieler() {
+        return spieler.get(aktuellerSpielerIndex);
+    }
+
+
+
+    private void zeigeSpielfeld() {
+        // Konsolenausgabe für Debugging
         for (int i = 0; i < zeilen; i++) {
             for (int j = 0; j < spalten; j++) {
                 System.out.print(spielfeld[i][j] + " ");
@@ -267,6 +295,13 @@ public class VierGewinnt extends Spiel implements Protokollierbar {
             System.out.println();
         }
         System.out.println();
+
+    }
+
+
+    private void zeigeStatusInGui(String nachricht) {
+        // Beispiel: GUI-Komponente für Status verwenden
+        JOptionPane.showMessageDialog(null, nachricht, "Spielstatus", JOptionPane.INFORMATION_MESSAGE);
     }
 
 }
