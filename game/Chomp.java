@@ -18,6 +18,10 @@ public class Chomp extends Spiel {
         this.spielfeld = new String[zeilen][spalten];
         initialisiereSpielfeld();
     }
+    @Override
+    public void spielzug(Spieler spieler) {
+        throw new UnsupportedOperationException("Für GUI-Aufrufe muss spielzug(Spieler spieler, int zeile, int spalte) verwendet werden.");
+    }
 
     private void initialisiereSpielfeld() {
         for (int i = 0; i < zeilen; i++) {
@@ -57,28 +61,18 @@ public class Chomp extends Spiel {
         }
     }
 
-    @Override
-    public void spielzug(Spieler spieler) {
-        Scanner scanner = new Scanner(System.in);
-        int zeile, spalte;
 
-        while (true) {
-            System.out.print("Spieler " + spieler.getName() + ", Zeile wählen: ");
-            zeile = scanner.nextInt();
-            System.out.print("Spieler " + spieler.getName() + ", Spalte wählen: ");
-            spalte = scanner.nextInt();
-
-            if (istGueltigerZug(zeile, spalte)) {
-                brettAnpassen(zeile, spalte);
-                if (zeile == 0 && spalte == 0) {
-                    spielBeendet = true; // Spiel verloren
-                }
-                break;
-            } else {
-                System.out.println("Ungültiger Zug. Bitte erneut versuchen.");
+    public void spielzug(Spieler spieler, int zeile, int spalte) {
+        if (istGueltigerZug(zeile, spalte)) {
+            brettAnpassen(zeile, spalte); // Spielfeld entsprechend anpassen
+            if (zeile == 0 && spalte == 0) {
+                spielBeendet = true; // Spiel beendet, wenn oberstes linkes Feld gewählt wird
             }
+        } else {
+            throw new IllegalArgumentException("Ungültiger Zug: Zeile " + zeile + ", Spalte " + spalte);
         }
     }
+
     // Zug des Computers
     private void computerZug() {
         Random random = new Random();
@@ -97,7 +91,7 @@ public class Chomp extends Spiel {
         }
     }
 
-    private boolean istGueltigerZug(int zeile, int spalte) {
+    public boolean istGueltigerZug(int zeile, int spalte) {
         return zeile >= 0 && zeile < zeilen && spalte >= 0 && spalte < spalten && !spielfeld[zeile][spalte].equals(" ");
     }
 
@@ -108,6 +102,16 @@ public class Chomp extends Spiel {
             }
         }
     }
+
+    public boolean isSpielBeendet() {
+        return spielBeendet;
+    }
+
+    public String[][] getSpielfeld() {
+        return spielfeld;
+    }
+
+
 
     @Override
     public void durchgang() {

@@ -9,6 +9,8 @@ public abstract class Spiel {
         this.spieler = spieler;
         this.spielfeld = spielfeld;
     }
-    public abstract void spielzug (Spieler spieler);
+
+
+    public abstract void spielzug(Spieler spieler);
     public abstract void durchgang();
 }
