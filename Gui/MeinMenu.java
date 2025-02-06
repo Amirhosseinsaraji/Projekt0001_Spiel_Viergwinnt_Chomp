@@ -1,6 +1,6 @@
 package Gui;
 import game.*;
-
+import game.ChompGUI;
 
 
 import javax.swing.*;
@@ -36,11 +36,9 @@ public class MeinMenu extends JFrame {
             public void mouseClicked(MouseEvent e) {
                 int zeilen = 4;
                 int spalten = 5;
-                Chomp chomp = new Chomp(zeilen, spalten);
                 MeinMenu.this.setVisible(false);
                 MeinMenu.this.dispose();
-                chomp.start();
-
+                new ChompGUI(zeilen, spalten); // Starte Chomp als GUI
             }
         });
 
