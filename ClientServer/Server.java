@@ -239,6 +239,7 @@ public class Server {
     // Entfernt den Client
     public void disconnectClient(Socket client) {
         connectedClients.values().remove(client);
+
         try {
             if (client != null && !client.isClosed()) {
                 client.close();
